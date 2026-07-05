@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from flask import Flask, flash, redirect, render_template, request, url_for
@@ -24,7 +25,7 @@ from utils.logger import get_logger, setup_logging
 BASE_DIR = Path(__file__).resolve().parent
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "securevision-vapt-demo"
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "securevision-vapt-demo")
 
 
 setup_logging()
@@ -107,4 +108,7 @@ def reports():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host=host, port=port, debug=debug_mode)

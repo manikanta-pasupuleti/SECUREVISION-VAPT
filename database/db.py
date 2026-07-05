@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import json
 import sqlite3
 from datetime import datetime
@@ -7,7 +8,9 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = Path(__file__).resolve().parent / "database.db"
+DB_PATH = Path(os.environ.get("SECUREVISION_DB_PATH", Path(__file__).resolve().parent / "database.db"))
+
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def get_connection():

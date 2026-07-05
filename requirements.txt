@@ -1,1 +1,13 @@
-flask
+Flask
+gunicorn
+python-nmap
+requests
+pandas
+reportlab
+openpyxl
+SQLAlchemy
+Jinja2
+tabulate
+schedule
+netifaces
+colorama
