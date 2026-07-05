@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}SecureVision VAPT | Dashboard{% endblock %}
+
+{% block content %}
+  <section class="stats">
+    <div class="stat"><span class="muted">Reports</span><strong>{{ stats.report_count }}</strong></div>
+    <div class="stat"><span class="muted">Devices</span><strong>{{ stats.device_count }}</strong></div>
+    <div class="stat"><span class="muted">Findings</span><strong>{{ stats.finding_count }}</strong></div>
+    <div class="stat"><span class="muted">Critical</span><strong>{{ stats.critical_count }}</strong></div>
+  </section>
+
+  <section class="panel">
+    <p class="section-title">Current report</p>
+    {% if report %}
+      <div class="meta-row">
+        <span class="pill">Report #{{ report.id }}</span>
+        <span class="pill">{{ report.created_at }}</span>
+        <span class="pill">Target: {{ report.target_spec }}</span>
+      </div>
+      <div class="summary-bar" style="margin-top: 1rem;">
+        <div class="mini-card"><span class="muted">Risk score</span><strong>{{ report.risk_score }}/100</strong></div>
+        <div class="mini-card"><span class="muted">Devices</span><strong>{{ report.device_count }}</strong></div>
+        <div class="mini-card"><span class="muted">Findings</span><strong>{{ report.finding_count }}</strong></div>
+        <div class="mini-card"><span class="muted">Critical</span><strong>{{ report.summary.severity_breakdown.critical }}</strong></div>
+      </div>
+    {% else %}
+      <p class="muted">Run a scan from the home page to populate the dashboard.</p>
+    {% endif %}
+  </section>
+
+  {% if report %}
+    <section class="grid-2">
+      <div class="table-panel">
+        <p class="section-title">Devices discovered</p>
+        <table>
+          <thead>
+            <tr>
+              <th>IP</th>
+              <th>Vendor</th>
+              <th>Firmware</th>
+              <th>Services</th>
+              <th>Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for device in report.devices %}
+              <tr>
+                <td>{{ device.ip_address }}</td>
+                <td>{{ device.vendor }} {{ device.model }}</td>
+                <td>{{ device.firmware_version }}</td>
+                <td>{{ device.services | join(', ') }}</td>
+                <td>{{ device.risk_score }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-panel">
+        <p class="section-title">Prioritized findings</p>
+        <div class="stack">
+          {% for finding in report.summary.prioritized_findings %}
+            <div class="mini-card">
+              <div class="finding-head">
+                <span class="badge {{ finding.severity }}">{{ finding.severity }}</span>
+                <strong>{{ finding.title }}</strong>
+              </div>
+              <p class="muted">{{ finding.device_ip }}</p>
+              <p>{{ finding.description }}</p>
+              <p class="muted"><strong>Remediation:</strong> {{ finding.remediation }}</p>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}
