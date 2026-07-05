@@ -18,3 +18,7 @@ Then open the local Flask URL shown in the terminal.
 - Safe vulnerability simulation for Telnet, RTSP, ONVIF, and outdated firmware baselines
 - Persisted report history and device inventory
 - Interactive dashboard pages for findings and remediation tracking
+
+## Repository hygiene
+
+The project ignores generated and local-only artifacts such as Python bytecode, virtual environments, backups, and the local SQLite database. Those files should stay untracked so a fresh clone remains clean and portable.
