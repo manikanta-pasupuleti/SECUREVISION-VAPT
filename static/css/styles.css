@@ -138,6 +138,15 @@ a {
   flex-wrap: wrap;
 }
 
+.workflow-stack {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.workflow-card {
+  border-left: 3px solid var(--accent);
+}
+
 .panel,
 .table-panel {
   border-radius: 1.4rem;

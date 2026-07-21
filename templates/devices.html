@@ -24,7 +24,7 @@
         {% for device in devices %}
           <tr>
             <td>#{{ device.report_id }} <span class="muted">{{ device.created_at }}</span></td>
-            <td><a href="{{ url_for('device_detail', report_id=device.report_id, ip_address=device.ip_address) }}">{{ device.ip_address }}</a></td>
+            <td><a href="{{ url_for('devices.device_detail', report_id=device.report_id, ip_address=device.ip_address) }}">{{ device.ip_address }}</a></td>
             <td>{{ device.vendor }} {{ device.model }}</td>
             <td>{{ device.firmware_version }}</td>
             <td>{{ device.services | join(', ') }}</td>

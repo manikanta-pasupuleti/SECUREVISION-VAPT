@@ -12,13 +12,13 @@
         fingerprint services, score risk, and store the findings in the report history.
       </p>
       <div class="hero-actions">
-        <a class="button" href="{{ url_for('dashboard') }}">Open dashboard</a>
-        <a class="ghost-button" href="{{ url_for('reports') }}">View reports</a>
+        <a class="button" href="{{ url_for('dashboard.dashboard') }}">Open dashboard</a>
+        <a class="ghost-button" href="{{ url_for('reports.reports') }}">View reports</a>
       </div>
     </div>
     <div class="panel">
       <p class="section-title">Quick scan</p>
-      <form class="form-grid" action="{{ url_for('scan') }}" method="post">
+      <form class="form-grid" action="{{ url_for('scan.scan') }}" method="post">
         <label>
           Target IP range or device list
           <textarea name="targets" placeholder="192.168.1.0/28, 192.168.1.50, 10.10.2.0/30"></textarea>
@@ -47,7 +47,7 @@
           <p><strong>Target:</strong> {{ latest_report.target_spec }}</p>
           <p><strong>Risk score:</strong> {{ latest_report.risk_score }}/100</p>
           <p><strong>Devices:</strong> {{ latest_report.device_count }} | <strong>Findings:</strong> {{ latest_report.finding_count }}</p>
-          <a class="button" href="{{ url_for('dashboard', report_id=latest_report.id) }}">Inspect result</a>
+          <a class="button" href="{{ url_for('dashboard.dashboard', report_id=latest_report.id) }}">Inspect result</a>
         </div>
       {% else %}
         <p class="muted">No scans have been recorded yet.</p>
@@ -55,11 +55,14 @@
     </div>
 
     <div class="table-panel">
-      <p class="section-title">What the system tracks</p>
-      <div class="stack">
-        <div class="mini-card">Device discovery and service exposure</div>
-        <div class="mini-card">Firmware and credential weakness checks</div>
-        <div class="mini-card">Prioritized remediation reporting</div>
+      <p class="section-title">Assessment workflow</p>
+      <div class="stack workflow-stack">
+        {% for stage in pipeline %}
+          <div class="mini-card workflow-card">
+            <strong>{{ stage.name }}</strong>
+            <p class="muted">{{ stage.description }}</p>
+          </div>
+        {% endfor %}
       </div>
     </div>
   </section>

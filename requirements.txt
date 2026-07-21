@@ -9,5 +9,4 @@ SQLAlchemy
 Jinja2
 tabulate
 schedule
-netifaces
 colorama

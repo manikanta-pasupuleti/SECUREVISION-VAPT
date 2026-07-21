@@ -42,6 +42,7 @@ def init_db():
                 firmware_version TEXT NOT NULL,
                 services_json TEXT NOT NULL,
                 risk_score INTEGER NOT NULL,
+                intelligence_json TEXT NOT NULL DEFAULT '{}',
                 FOREIGN KEY(report_id) REFERENCES reports(id)
             );
 
@@ -54,10 +55,135 @@ def init_db():
                 description TEXT NOT NULL,
                 remediation TEXT NOT NULL,
                 evidence TEXT NOT NULL,
+                technical_explanation TEXT DEFAULT '',
+                business_impact TEXT DEFAULT '',
+                exploitability TEXT DEFAULT '',
+                attack_scenario TEXT DEFAULT '',
+                risk_justification TEXT DEFAULT '',
+                cve_references_json TEXT DEFAULT '[]',
+                references_json TEXT DEFAULT '[]',
+                FOREIGN KEY(report_id) REFERENCES reports(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS assets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip_address TEXT NOT NULL UNIQUE,
+                vendor TEXT NOT NULL,
+                model TEXT NOT NULL,
+                first_seen TEXT NOT NULL,
+                last_seen TEXT NOT NULL,
+                current_firmware TEXT NOT NULL,
+                current_risk_score INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                owner TEXT DEFAULT '',
+                location TEXT DEFAULT '',
+                notes TEXT DEFAULT ''
+            );
+
+            CREATE TABLE IF NOT EXISTS asset_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                asset_id INTEGER NOT NULL,
+                timestamp TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                old_value TEXT,
+                new_value TEXT,
+                report_id INTEGER,
+                FOREIGN KEY(asset_id) REFERENCES assets(id),
+                FOREIGN KEY(report_id) REFERENCES reports(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                alert_id TEXT NOT NULL UNIQUE,
+                alert_type TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                device_ip TEXT,
+                report_id INTEGER,
+                timestamp TEXT NOT NULL,
+                metadata TEXT DEFAULT '{}',
+                acknowledged INTEGER DEFAULT 0,
+                acknowledged_at TEXT,
+                acknowledged_by TEXT,
                 FOREIGN KEY(report_id) REFERENCES reports(id)
             );
             """
         )
+        # Migrate existing databases that predate intelligence_json column
+        existing = {row[1] for row in connection.execute("PRAGMA table_info(devices)").fetchall()}
+        if "intelligence_json" not in existing:
+            connection.execute("ALTER TABLE devices ADD COLUMN intelligence_json TEXT NOT NULL DEFAULT '{}'")
+            connection.commit()
+
+        # Migrate existing databases that predate assets tables
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "assets" not in tables:
+            connection.executescript(
+                """
+                CREATE TABLE assets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ip_address TEXT NOT NULL UNIQUE,
+                    vendor TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    first_seen TEXT NOT NULL,
+                    last_seen TEXT NOT NULL,
+                    current_firmware TEXT NOT NULL,
+                    current_risk_score INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    owner TEXT DEFAULT '',
+                    location TEXT DEFAULT '',
+                    notes TEXT DEFAULT ''
+                );
+                CREATE TABLE asset_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    asset_id INTEGER NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    old_value TEXT,
+                    new_value TEXT,
+                    report_id INTEGER,
+                    FOREIGN KEY(asset_id) REFERENCES assets(id),
+                    FOREIGN KEY(report_id) REFERENCES reports(id)
+                );
+                """
+            )
+            connection.commit()
+
+        # Migrate existing databases that predate intelligence columns in findings
+        findings_cols = {row[1] for row in connection.execute("PRAGMA table_info(findings)").fetchall()}
+        if "technical_explanation" not in findings_cols:
+            for col in ["technical_explanation", "business_impact", "exploitability", "attack_scenario", "risk_justification", "cve_references_json", "references_json"]:
+                try:
+                    connection.execute(f"ALTER TABLE findings ADD COLUMN {col} TEXT DEFAULT ''")
+                except sqlite3.OperationalError:
+                    pass
+            connection.commit()
+
+        # Migrate existing databases that predate alerts table
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "alerts" not in tables:
+            connection.execute(
+                """
+                CREATE TABLE alerts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    alert_id TEXT NOT NULL UNIQUE,
+                    alert_type TEXT NOT NULL,
+                    severity TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    device_ip TEXT,
+                    report_id INTEGER,
+                    timestamp TEXT NOT NULL,
+                    metadata TEXT DEFAULT '{}',
+                    acknowledged INTEGER DEFAULT 0,
+                    acknowledged_at TEXT,
+                    acknowledged_by TEXT,
+                    FOREIGN KEY(report_id) REFERENCES reports(id)
+                )
+                """
+            )
+            connection.commit()
 
 
 def save_scan(target_spec, device_rows, findings, summary):
@@ -83,8 +209,8 @@ def save_scan(target_spec, device_rows, findings, summary):
             connection.execute(
                 """
                 INSERT INTO devices (
-                    report_id, ip_address, vendor, model, firmware_version, services_json, risk_score
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    report_id, ip_address, vendor, model, firmware_version, services_json, risk_score, intelligence_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     report_id,
@@ -94,6 +220,7 @@ def save_scan(target_spec, device_rows, findings, summary):
                     device["firmware_version"],
                     json.dumps(device["services"]),
                     device["risk_score"],
+                    json.dumps(device.get("intelligence", {})),
                 ),
             )
 
@@ -101,8 +228,10 @@ def save_scan(target_spec, device_rows, findings, summary):
             connection.execute(
                 """
                 INSERT INTO findings (
-                    report_id, device_ip, severity, title, description, remediation, evidence
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    report_id, device_ip, severity, title, description, remediation, evidence,
+                    technical_explanation, business_impact, exploitability, attack_scenario,
+                    risk_justification, cve_references_json, references_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     report_id,
@@ -112,6 +241,13 @@ def save_scan(target_spec, device_rows, findings, summary):
                     finding["description"],
                     finding["remediation"],
                     finding["evidence"],
+                    finding.get("technical_explanation", ""),
+                    finding.get("business_impact", ""),
+                    finding.get("exploitability", ""),
+                    finding.get("attack_scenario", ""),
+                    finding.get("risk_justification", ""),
+                    json.dumps(finding.get("cve_references", [])),
+                    json.dumps(finding.get("references", [])),
                 ),
             )
 
@@ -181,6 +317,7 @@ def list_devices():
                 "firmware_version": row["firmware_version"],
                 "services": json.loads(row["services_json"]),
                 "risk_score": row["risk_score"],
+                "intelligence": json.loads(row["intelligence_json"]) if row["intelligence_json"] else {},
             }
         )
     return devices
@@ -223,6 +360,7 @@ def get_device_detail(report_id, ip_address):
         "firmware_version": device_row["firmware_version"],
         "services": json.loads(device_row["services_json"]),
         "risk_score": device_row["risk_score"],
+        "intelligence": json.loads(device_row["intelligence_json"]) if device_row["intelligence_json"] else {},
         "summary": json.loads(device_row["summary_json"]),
         "findings": [
             {
@@ -231,6 +369,13 @@ def get_device_detail(report_id, ip_address):
                 "description": finding_row["description"],
                 "remediation": finding_row["remediation"],
                 "evidence": finding_row["evidence"],
+                "technical_explanation": finding_row["technical_explanation"] or "",
+                "business_impact": finding_row["business_impact"] or "",
+                "exploitability": finding_row["exploitability"] or "",
+                "attack_scenario": finding_row["attack_scenario"] or "",
+                "risk_justification": finding_row["risk_justification"] or "",
+                "cve_references": json.loads(finding_row["cve_references_json"] or "[]"),
+                "references": json.loads(finding_row["references_json"] or "[]"),
             }
             for finding_row in finding_rows
         ],
@@ -270,6 +415,7 @@ def _build_report(row, include_details=True):
             "firmware_version": device_row["firmware_version"],
             "services": json.loads(device_row["services_json"]),
             "risk_score": device_row["risk_score"],
+            "intelligence": json.loads(device_row["intelligence_json"]) if device_row["intelligence_json"] else {},
         }
         for device_row in device_rows
     ]
@@ -281,6 +427,13 @@ def _build_report(row, include_details=True):
             "description": finding_row["description"],
             "remediation": finding_row["remediation"],
             "evidence": finding_row["evidence"],
+            "technical_explanation": finding_row["technical_explanation"] or "",
+            "business_impact": finding_row["business_impact"] or "",
+            "exploitability": finding_row["exploitability"] or "",
+            "attack_scenario": finding_row["attack_scenario"] or "",
+            "risk_justification": finding_row["risk_justification"] or "",
+            "cve_references": json.loads(finding_row["cve_references_json"] or "[]"),
+            "references": json.loads(finding_row["references_json"] or "[]"),
         }
         for finding_row in finding_rows
     ]

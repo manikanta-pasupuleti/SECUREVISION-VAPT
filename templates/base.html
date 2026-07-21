@@ -15,10 +15,13 @@
         <h1>Surveillance exposure dashboard</h1>
       </div>
       <nav>
-        <a href="{{ url_for('index') }}">Home</a>
-        <a href="{{ url_for('dashboard') }}">Dashboard</a>
-        <a href="{{ url_for('devices') }}">Devices</a>
-        <a href="{{ url_for('reports') }}">Reports</a>
+        <a href="{{ url_for('scan.index') }}">Home</a>
+        <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('assets.assets') }}">Assets</a>
+        <a href="{{ url_for('devices.devices') }}">Devices</a>
+        <a href="{{ url_for('reports.reports') }}">Reports</a>
+        <a href="{{ url_for('remediation.list_workflows') }}">Remediation</a>
+        <a href="{{ url_for('alerts.alerts_page') }}">Alerts</a>
       </nav>
     </header>
 
